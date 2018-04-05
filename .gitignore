@@ -35,6 +35,9 @@
 *.out
 *.app
 
+# Output Files
+output.txt
+
 ### macOS ###
 *.DS_Store
 .AppleDouble

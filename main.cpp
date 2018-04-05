@@ -5,6 +5,7 @@
 #include <math.h>
 #include <algorithm>
 #include <ncurses.h>
+#include <omp.h>
 #include "main.h"
 
 using namespace std;
@@ -20,7 +21,7 @@ typedef struct _NODE {
     struct _NODE *child;                        // Linked-list of child nodes.
     int blockId;                                // ID of block.
     int blockX, blockY, blockRotate;            // Rotation status and position of block.
-    bool scoreUpdateFlag;
+    bool scoreUpdateFlag;                       // Set TRUE once accunulatedScore is updated by child node.
 } NODE;
 
 /*
@@ -44,13 +45,17 @@ typedef struct _INDIVIDUAL {
 } INDIVIDUAL;
 
 INDIVIDUAL population[NUM_OF_POPULATION], good[NUM_OF_TOP_POPULATION];  // Each generation has 20 chromosomes and select best 4 of them.
-int gen = 1, pop; // # of generation, # of individual
+int gen = 1; // # of generation, # of individual
 
-int playTetris();
+WINDOW* Windows[NUM_OF_POPULATION];
+
+bool NO_SCREEN = false;
+
+int playTetris(int pop);
 bool checkBlockCanMove(int f[HEIGHT][WIDTH],int blockId, int blockRotate, int blockY, int blockX);
 int addBlockToField(int f[HEIGHT][WIDTH], int blockId, int blockRotate, int blockY, int blockX);
 int deleteLineFromField(int f[HEIGHT][WIDTH]);
-void getRecommendedPlay(NODE *parent, int *blockRotate, int *blockY, int *blockX, int blockQueue[]);
+void getRecommendedPlay(NODE *parent, int *blockRotate, int *blockY, int *blockX, int blockQueue[], int pop);
 
 /*
  Comparison function for compare the fitness of two individuals.
@@ -61,9 +66,17 @@ bool individualLessFunction(struct _INDIVIDUAL a, struct _INDIVIDUAL b) {
     return false;
 }
 
-int main() {
+int main(int argc, char *argv[]) {
     FILE *outf;
-    int i, j;
+    int i, j, thread_count = 1;
+    
+    if(argc >= 2) {
+        for(i = 1; i < argc; i++) {
+            if(strcmp(argv[i], "-t") == 0 && i < argc - 1) thread_count = strtol(argv[++i], NULL, 10);
+            else if(strcmp(argv[i], "-noscreen") == 0) NO_SCREEN = true;
+        }
+    }
+    
     /*
      Generate 20 random chromosomes for the first generation. (Initialization)
      We can assume some factors might be good for playing Tetris, but some factors are not.
@@ -89,32 +102,72 @@ int main() {
      For every generation, the weights of the best individual will be written in the 'output.txt' file.
      */
     initscr();
-    printw("gen\tpop\ti\n");
+    start_color();
+    init_pair(1, COLOR_CYAN, COLOR_BLACK);
+    init_pair(2, COLOR_BLUE, COLOR_WHITE);
+    init_pair(3, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(4, COLOR_MAGENTA, COLOR_BLACK);
+    init_pair(5, COLOR_WHITE, COLOR_BLACK);
+    init_pair(6, COLOR_GREEN, COLOR_BLACK);
+    init_pair(7, COLOR_RED, COLOR_BLACK);
+    noecho();
+    curs_set(false);
+    
+    WINDOW *generationWindow = newwin(0, 0, 0, 0), *resultWindow;
+    scrollok(generationWindow, TRUE);
+    wrefresh(generationWindow);
+    for(i = 0; i < NUM_OF_POPULATION; i++) {
+        if(!NO_SCREEN) Windows[i] = newwin(HEIGHT + 4, WIDTH + 10, 1 + (i / 10) * (HEIGHT + 4), (WIDTH + 10) * (i % 10));
+        else Windows[i] = newwin(4, WIDTH + 10, 1 + (i / 10) * 4, (WIDTH + 10) * (i % 10));
+        scrollok(Windows[i], TRUE);
+        wrefresh(Windows[i]);
+    }
+    if(!NO_SCREEN) resultWindow = newwin(0, 0, 1 + 2 * (HEIGHT + 4), 0);
+    else resultWindow = newwin(0, 0, 1 + 2 * 4, 0);
+    scrollok(resultWindow, TRUE);
+    wrefresh(resultWindow);
+    
     while(1)
     {
-        mvprintw(1, 0, "%d", gen);
-        for(pop = 0; pop < NUM_OF_POPULATION; pop++)
+        mvwprintw(generationWindow, 0, 0, "Generation: %d", gen);
+        wrefresh(generationWindow);
+        for(i = 0; i < NUM_OF_POPULATION; i++) {
+            wclear(Windows[i]);
+            mvwprintw(Windows[i], 0, 0, "Pop: %d", i + 1);
+            wrefresh(Windows[i]);
+        }
+        #pragma omp parallel num_threads(thread_count)
+        #pragma omp for private(i, j)
+        for(i = 0; i < NUM_OF_POPULATION; i++)
         {
-            mvprintw(1, NUM_OF_WEIGHTS, "%2d", pop);
-            for(i = 0; i < NUM_OF_PLAY; i++)
+            for(j = 0; j < NUM_OF_PLAY; j++)
             {
-                mvprintw(1, 16, "%2d", i);
-                refresh();
-                population[pop].score += playTetris();
+                mvwprintw(Windows[i], 0, 0, "Pop: %d (%d)", i + 1, j + 1);
+                #pragma omp critical(wrefresh)
+                {
+                    wrefresh(Windows[i]);
+                }
+                population[i].score += playTetris(i);
             }
-            population[pop].score /= (double)NUM_OF_PLAY; // Get the average of 20 scores.
-            mvprintw(2, 0, "score: %lf\n", population[pop].score);
-            refresh();
+            population[i].score /= (double)NUM_OF_PLAY; // Get the average of 20 scores.
+            if(!NO_SCREEN) mvwprintw(Windows[i], HEIGHT + 1, 0, "score: %.2lf\n", population[i].score);
+            else mvwprintw(Windows[i], 1, 0, "score: %.2lf\n", population[i].score);
+            #pragma omp critical(wrefresh)
+            {
+                wrefresh(Windows[i]);
+            }
         }
         sort(population, population + NUM_OF_POPULATION, individualLessFunction);
+        mvwprintw(resultWindow, 0, 0, "Generation %d is finished. (Max Score: %.2lf)", gen, population[0].score);
+        wrefresh(resultWindow);
         outf = fopen("output.txt", "a");
         fprintf(outf, "Gen %d : ", gen);
         for(i = 0; i < NUM_OF_WEIGHTS; i++)
             fprintf(outf, "%lf ", population[0].weight[i]);
         fprintf(outf, "\n");
         fclose(outf);
-        mvprintw(4, 0, "generation %d complete\n", gen);
-        refresh();
+        // mvprintw(4, 0, "generation %d complete\n", gen);
+        // refresh();
         // Selection: Select top 4 individuals.
         for(i = 0; i < NUM_OF_TOP_POPULATION; i++)
             for(j = 0; j < NUM_OF_WEIGHTS; j++)
@@ -147,12 +200,12 @@ int main() {
  4. After current block is stacked on the field successfully, score is updated and current block will be switched to next block.
  5. 2 ~ 4 will be iterated until game ends.
  */
-int playTetris() {
-    int i, j;                               // Variables for iterations.
+int playTetris(int pop) {
+    int i, j;            // Variables for iterations.
     int field[HEIGHT][WIDTH];               // Field of game where blocks are stacked.
     int blockQueue[BLOCK_NUM];              // Queue of blocks. ([0]: Current block, [1]: Next block)
     int blockRotate, blockY, blockX;        // Recommended rotation(recommendR) and position(recommendX, recommendY) of current block.
-    int score;                              // Stores score of game.
+    int score;                   // Stores score of game.
     NODE Root;                              // Root node of state space tree.
     
     // Initializes the game.
@@ -167,7 +220,7 @@ int playTetris() {
     // Play game until it is over.
     while(1) {
         // Get the recommended play of current block.
-        getRecommendedPlay(&Root, &blockRotate, &blockY, &blockX, blockQueue);
+        getRecommendedPlay(&Root, &blockRotate, &blockY, &blockX, blockQueue, pop);
         // Check whether block will get out of the boundary of field by doing recommended play or not. If it does, game should be over.
         if(blockY <= boundary[blockQueue[0]][blockRotate].y1 - 1) break;
         // If block can be stacked on the field normally, add block to the field and update score.
@@ -176,9 +229,30 @@ int playTetris() {
         // Switch current blcok to next block.
         for(i = 0; i < BLOCK_NUM - 1; i++) blockQueue[i] = blockQueue[i + 1];
         blockQueue[i] = rand() % 7;
-        for(i = 0; i < HEIGHT; i++) for(j = 0; j < WIDTH; j++) Root.recField[i][j] = field[i][j];
+        for(i = 0; i < HEIGHT; i++) {
+            for(j = 0; j < WIDTH; j++) {
+                Root.recField[i][j] = field[i][j];
+                if(!NO_SCREEN) {
+                    if(field[i][j] != 0) {
+                        wattron(Windows[pop], A_REVERSE);
+                        wattron(Windows[pop], COLOR_PAIR(field[i][j]));
+                        mvwprintw(Windows[pop], i + 1, j, " ");
+                        wattroff(Windows[pop], COLOR_PAIR(field[i][j]));
+                        wattroff(Windows[pop], A_REVERSE);
+                    } else {
+                        mvwprintw(Windows[pop], i + 1, j, " ");
+                    }
+                }
+            }
+        }
+        if(!NO_SCREEN) {
+            #pragma omp critical(wrefresh)
+            {
+                wrefresh(Windows[pop]);
+            }
+        }
     }
-    
+    // wrefresh(win);
     // Game is over. Return the score of the game.
     return score;
 }
@@ -249,7 +323,7 @@ int deleteLineFromField(int f[HEIGHT][WIDTH]) {
  By DFS, the root node will hold the best play using all the blocks in blockQueue.
  The best play will be returned by storing values at the pointer parameters of function: location(blockX, blockY) and rotation(blockRotate) of block.
  */
-void getRecommendedPlay(NODE *parent, int *blockRotate, int *blockY, int *blockX, int blockQueue[]) {
+void getRecommendedPlay(NODE *parent, int *blockRotate, int *blockY, int *blockX, int blockQueue[], int pop) {
     int r, x, y, i, j;                                          // r: rotation state, x: x coordination, y: y coordination, i, j: for iterations.
     double scoreOfParent = parent->accumulatedScore;            // Store the score of parent node of the child nodes.
     double averageOfHeight, averageOfSquareOfHeight, SDofHeight;        // Variables for calculating standard deviation of height.
@@ -323,7 +397,7 @@ void getRecommendedPlay(NODE *parent, int *blockRotate, int *blockY, int *blockX
             child->level = parent->level + 1;
             child->scoreUpdateFlag = false;
             // If there are blocks to be considered in the blockQueue, do recursive.
-            if(child->level < BLOCK_NUM) getRecommendedPlay(child, NULL, NULL, NULL, blockQueue);
+            if(child->level < BLOCK_NUM) getRecommendedPlay(child, NULL, NULL, NULL, blockQueue, pop);
             // Parent node should recommend the situation of location and rotation which shows the best performance.
             // accumulatedScore variable of parent node will be contiuously updated to the best score whenever child node finishes DFS.
             if(parent->scoreUpdateFlag == false || child->accumulatedScore > parent->accumulatedScore || (child->accumulatedScore == parent->accumulatedScore && rand() % 2 == 0)) {

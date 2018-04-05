@@ -1,11 +1,8 @@
-CC = gcc
-TARGET = main.out
+CC = g++-7
+TARGET = a.out
 
-$(TARGET): main.o
-	$(CC) -Wall -o $(TARGET) -lncurses main.o
-
-main.o: main.cpp main.h
-	$(CC) -Wall -c main.cpp
+$(TARGET): main.cpp main.h
+	$(CC) -Wall -lncurses -fopenmp -o $(TARGET) main.cpp
 
 clean:
-	rm *.o $(TARGET)
+	rm *.o $(TARGET) output.txt
