@@ -6,7 +6,12 @@ These instructions will help you to let your computer learns playing Tetris.
 ### Tested Environment
  - Mac OS X 10.3
 ### Prerequisites
-Your environment should have GCC compiler or other compilers that can compile these codes. Also ncurses library is required.
+Your environment should have GCC compiler which supports OpenMP. Also ncurses library is required.
+#### Mac OS X
+If you are using Mac OS X, you have to install GCC 7 that can complie OpenMP. You can install by typing (You have to install Homebrew in advance.):
+```
+brew install gcc --without-multilib
+```
 ### Installing
 Just clone this git.
 ```
@@ -24,17 +29,19 @@ make clean
 ### Run executable file
 To run program, just type
 ```
-./main.out
+./a.out
 ```
-'main.out' is the executable file created by compiler. Now you can see the process of machine learning by running this.
+'a.out' is the executable file created by compiler. Now you can see the process of machine learning.
+### Options
+#### -t [number of threads]
+This project supports multi-threading using OpenMP. If you want to use multi threads, use this option. For example, if you want to use 20 threads, type:
+```
+./a.out -t 20
+```
+#### -noscreen
+By default, progress of the playing game will be printed on the screen. However, as print function is expensive, you can turn off printing the progress of the playing by typing this option to do machine learning more faster.
 ### Output of terminal
-As we are using genetic algorithm, there are concepts of generation, population and individual. Therefore, you can see the current order of generation and individual in the terminal. Also, population of each generation is 20 and each individual plays game 20 times and get average score of them.
-```
-gen	pop	i
-1	9	8
-score: 14331.000000
-```
-For this example, the order of generation and individual is 1 and 9. Also, this individual played game 7 times and currently playing the 8th game. The average score of 20 games of last individual (In this case, the 8th individual of the 1st generation.) was 14,331.
+As we are using genetic algorithm, there are concepts of generation, population and individual. Therefore, you can see the current order of generation and the learning progress of each individual  in the terminal. If you are not using '-noscreen' option, you can see the progress of playing game. Also, population of each generation is 20 and each individual plays game 20 times and get average score of them.
 ### Result of machine learning
 You can get the result of machine learning in the 'output.txt' file. In this file, the weights of each generation which show the best performance will be written.
 ```
