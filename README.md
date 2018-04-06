@@ -39,9 +39,9 @@ This project supports multi-threading using OpenMP. If you want to use multi thr
 ./a.out -t 20
 ```
 #### -noscreen
-By default, progress of the playing game will be printed on the screen. However, as print function is expensive, you can turn off printing the progress of the playing by typing this option to do machine learning more faster.
+By default, progress of the playing game will be printed on the screen. However, as print function is expensive, you can turn off printing the progress of the playing by typing this option to do machine learning much more faster.
 ### Output of terminal
-As we are using genetic algorithm, there are concepts of generation, population and individual. Therefore, you can see the current order of generation and the learning progress of each individual  in the terminal. If you are not using '-noscreen' option, you can see the progress of playing game. Also, population of each generation is 20 and each individual plays game 20 times and get average score of them.
+As we are using genetic algorithm, there are concepts of generation, population and individual. Therefore, you can see the current order of generation and the learning progress of each individual  in the terminal. If you are using multiple threads by '-t' option, multiple individuals will play game simultaneously. Also, if you are not using '-noscreen' option, you can see the progress of playing game. Also, population of each generation is 20 and each individual plays game 20 times and get average score of them.
 ### Result of machine learning
 You can get the result of machine learning in the 'output.txt' file. In this file, the weights of each generation which show the best performance will be written.
 ```
