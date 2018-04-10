@@ -1,6 +1,7 @@
 
 # Tetris AI: Machine Learning using Genetic Algorithm
-This project do machine learning using genetic algorithm to make Tetris AI.
+This project do machine learning using genetic algorithm to make Tetris AI.<br>
+You can check the video: [Tetris AI: Genetic Algorithm (Speed 20x)](https://www.youtube.com/watch?v=cfUrYZjximE)
 ## Getting started
 These instructions will help you to let your computer learns playing Tetris.
 ### Tested Environment
