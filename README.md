@@ -34,7 +34,7 @@ To run program, just type
 ```
 'a.out' is the executable file created by compiler. Now you can see the process of machine learning.
 ### Options
-#### -t [number of threads]
+#### -t [number of threads (1~20)]
 This project supports multi-threading using OpenMP. If you want to use multi threads, use this option. For example, if you want to use 20 threads, type:
 ```
 ./a.out -t 20
