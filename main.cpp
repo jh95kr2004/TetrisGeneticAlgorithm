@@ -72,7 +72,11 @@ int main(int argc, char *argv[]) {
     
     if(argc >= 2) {
         for(i = 1; i < argc; i++) {
-            if(strcmp(argv[i], "-t") == 0 && i < argc - 1) thread_count = strtol(argv[++i], NULL, 10);
+            if(strcmp(argv[i], "-t") == 0 && i < argc - 1) {
+				thread_count = strtol(argv[++i], NULL, 10);
+				if(thread_count < 1) thread_count = 1;
+				else if(thread_count > 20) thread_count = 20;
+			}
             else if(strcmp(argv[i], "-noscreen") == 0) NO_SCREEN = true;
         }
     }
